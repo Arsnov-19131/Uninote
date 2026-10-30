@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase";
-import { Button, Input } from "@/components/ui";
+import { Button } from "@/components/ui";
+import Link from "next/link";
 
 export default function CloudAccount() {
   const client = getSupabaseClient();
@@ -74,14 +75,12 @@ export default function CloudAccount() {
           <Button size="sm" variant="secondary" onClick={signOut} disabled={busy}>Sign out</Button>
         </div>
       ) : (
-        <form onSubmit={(event) => { event.preventDefault(); void act("signIn"); }} className="grid gap-3 sm:grid-cols-2">
-          <Input label="Account email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-          <Input label="Password" type="password" autoComplete="current-password" minLength={6} value={password} onChange={(event) => setPassword(event.target.value)} required />
-          <div className="flex flex-wrap gap-2 sm:col-span-2">
-            <Button size="sm" type="submit" disabled={busy}>{busy ? "Please wait…" : "Sign in & sync"}</Button>
-            <Button size="sm" variant="secondary" type="button" disabled={busy || !email || password.length < 6} onClick={() => void act("signUp")}>Create account</Button>
-          </div>
-        </form>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-ink-light">You are not signed in. Sign in to sync your study data across devices.</p>
+          <Link href="/auth/sign-in">
+            <Button size="sm" variant="primary">Sign in & sync</Button>
+          </Link>
+        </div>
       )}
       {message && <p role="status" className="text-sm text-ink-light">{message}</p>}
       {client && <p className="text-xs text-ink-faint">On first sign-in, this device&apos;s data merges into the account. Switching accounts loads that account&apos;s cloud data and keeps an archive of the current device data. Data remains available locally when offline.</p>}
