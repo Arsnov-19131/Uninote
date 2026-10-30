@@ -3,6 +3,7 @@
   Gemini key on the server. To change provider later, change src/app/api/ai/route.ts only.
 */
 import type { QuestionType, QuizDifficulty, ReadingLevel } from "@/types";
+import { getSupabaseClient } from "@/lib/supabase";
 
 export type AiResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -63,9 +64,17 @@ async function call<T>(job: string, payload: Record<string, unknown>): Promise<A
     };
   }
   try {
+    // Signed-in students send their session token, so the server knows who is asking.
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    try {
+      const { data } = (await getSupabaseClient()?.auth.getSession()) ?? { data: null };
+      if (data?.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
+    } catch {
+      // No session is fine; the server decides whether that is allowed.
+    }
     const res = await fetch("/api/ai", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ job, ...payload }),
     });
     const body = (await res.json().catch(() => null)) as AiResult<T> | null;

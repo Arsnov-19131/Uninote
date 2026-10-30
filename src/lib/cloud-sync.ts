@@ -126,13 +126,68 @@ export async function loadCloud(client: SupabaseClient, user: User) {
   return (data?.data ?? null) as CloudSnapshot | null;
 }
 
-export async function saveCloudSnapshot(client: SupabaseClient, user: User) {
-  const snapshot = readLocalSnapshot();
-  const { error } = await client.from("user_app_data").upsert({
-    user_id: user.id,
-    data: snapshot,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: "user_id" });
-  if (error) throw error;
-  localStorage.setItem(`ast-cloud-baseline-${user.id}`, JSON.stringify(createIdBaseline(snapshot)));
+function readBaseline(userId: string): IdBaseline | null {
+  try {
+    const saved = localStorage.getItem(`ast-cloud-baseline-${userId}`);
+    return saved ? (JSON.parse(saved) as IdBaseline) : null;
+  } catch {
+    localStorage.removeItem(`ast-cloud-baseline-${userId}`);
+    return null;
+  }
+}
+
+const MAX_SAVE_ATTEMPTS = 4;
+let saveQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Brings this device and the account's cloud copy to the same state, safely:
+ *  1. read the cloud copy and its version stamp (updated_at);
+ *  2. merge it with this device's data (newest edit wins per item, deletions are respected);
+ *  3. show the merged result on this device;
+ *  4. write it back ONLY if nobody else changed the cloud copy in the meantime. If someone did,
+ *     start again from step 1, so another device's changes are never overwritten.
+ * Calls are queued so two syncs in the same tab never overlap. It writes nothing when there is nothing new.
+ */
+export function saveCloudSnapshot(client: SupabaseClient, user: User): Promise<void> {
+  const run = saveQueue.then(() => syncOnce(client, user));
+  saveQueue = run.catch(() => undefined);
+  return run;
+}
+
+async function syncOnce(client: SupabaseClient, user: User): Promise<void> {
+  for (let attempt = 0; attempt < MAX_SAVE_ATTEMPTS; attempt++) {
+    const { data: row, error } = await client.from("user_app_data")
+      .select("data, updated_at").eq("user_id", user.id).maybeSingle();
+    if (error) throw error;
+    const cloud = ((row?.data ?? {}) as CloudSnapshot) || {};
+
+    // Steps 2 and 3 run without waiting, so an edit made on this device cannot slip in between.
+    const local = readLocalSnapshot();
+    const merged = reconcileSnapshots(local, cloud, readBaseline(user.id));
+    if (JSON.stringify(merged) !== JSON.stringify(local)) applySnapshot(merged);
+    const result = readLocalSnapshot();
+
+    const nothingNew = row && JSON.stringify(result) === JSON.stringify(cloud);
+    if (!nothingNew) {
+      const stamp = new Date().toISOString();
+      if (row) {
+        const { data: updated, error: updateError } = await client.from("user_app_data")
+          .update({ data: result, updated_at: stamp })
+          .eq("user_id", user.id).eq("updated_at", row.updated_at)
+          .select("user_id");
+        if (updateError) throw updateError;
+        if (!updated || updated.length === 0) continue; // changed elsewhere: merge again
+      } else {
+        const { error: insertError } = await client.from("user_app_data")
+          .insert({ user_id: user.id, data: result, updated_at: stamp });
+        if (insertError) {
+          if (insertError.code === "23505") continue; // another device created it first
+          throw insertError;
+        }
+      }
+    }
+    localStorage.setItem(`ast-cloud-baseline-${user.id}`, JSON.stringify(createIdBaseline(result)));
+    return;
+  }
+  throw new Error("Cloud data kept changing on another device. It will sync again shortly.");
 }

@@ -98,8 +98,15 @@ To do, in agreed order (update after every build):
    - In Settings, clicking "Clear All Local Data" prompts for confirmation and clears local storage, leaving a clean slate on reload.
 3. AGENT: fix whatever the browser test finds. Awaiting user's checkpoint choice: commit-to-GitHub/save-locally/both/skip for the work delivered so far.
 
+## Code Review Follow-ups (2026-10-30, written, NOT yet run)
+- DONE: `public/sw.js` (v2: no RSC/dynamic caching, only `/_next/static/` + icons cache-first, error pages not cached), `src/lib/device-notifications.ts` (no SW in dev; removes old SW + cache), `chat/page.tsx` (Markdown rendering, input restored on AI failure, question saved only after reply).
+- DONE (written, NOT yet run): `/api/ai` hardening. In production it needs a signed-in Supabase account (bearer token checked on the server); in dev it stays open unless `AI_REQUIRE_LOGIN=true`. Limits per user: 150 model calls/day, 12/min, retries counted. 30 s Gemini timeout, 100 KB body cap, `<source>` tag break-out blocked. `src/lib/ai.ts` sends the session token. New env var `AI_REQUIRE_LOGIN` in `.env.example`. Limits are in memory (reset on restart).
+- DONE (written, NOT yet run in a browser/Supabase): cloud sync no longer overwrites other devices. Each save first reads the cloud copy, merges it (deletions respected), applies the result locally, and writes only if `updated_at` is unchanged (otherwise re-merges, up to 4 tries). No write when nothing is new. Saves are queued. Tabs also pull every 60 s and when they become visible. A 10-check simulation with a fake two-device Supabase passed in the agent sandbox (stale device adds an item without dropping the other's, deletions propagate, conflict retry, no-op writes nothing). Changed: `src/lib/cloud-sync.ts`, `src/components/CloudSync.tsx`.
+- OPEN: "Resources" source not wired; remove `ai-study-toolkit-task-d-files.zip` from git; `next lint` removed in Next 16; unused deps.
+- Git: local commit fbf22c1 exists, no remote.
+
 ## Last Commit
-Not committed yet. The user has the project folder locally; agent changes are delivered as changed files.
+Local commit `fbf22c1` on `main` (feat: AI route, reminders, planner views, cloud sync, dark mode, clean data). No remote yet, nothing pushed. Planned cleanup (user runs it): remove `ai-study-toolkit-task-d-files.zip` from the commit and ignore `*.zip`, restore `README.md` (agent instructions), commit the review fixes as `fix: service worker, chat markdown/retry, AI route hardening, cross-device cloud sync`, add the GitHub remote, push. Confirm here once pushed.
 
 ## Important Files
 - `PROJECT_STATUS.md`: this file. `HANDOFF.md`: detailed notes for the next agent session.

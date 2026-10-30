@@ -84,10 +84,11 @@ export default function CloudSync() {
           return;
         }
         try {
-          const { data: { user }, error } = await client.auth.getUser();
+          // The session is read from this device; the database rejects writes from anyone else anyway.
+          const { data: { session }, error } = await client.auth.getSession();
           if (error) throw error;
-          if (user?.id === userId) {
-            await saveCloudSnapshot(client, user);
+          if (session?.user.id === userId) {
+            await saveCloudSnapshot(client, session.user);
             setSyncStatus("Synced to your account.");
           }
         } catch (error) {
@@ -112,12 +113,23 @@ export default function CloudSync() {
     };
     window.addEventListener("online", reconnect);
 
+    // Pick up changes made on other devices: when this tab becomes visible again, and once a minute while it is.
+    const pull = () => {
+      if (!activeUserId || loading || !navigator.onLine || document.visibilityState !== "visible") return;
+      scheduleSave();
+    };
+    const onVisible = () => pull();
+    document.addEventListener("visibilitychange", onVisible);
+    const pullTimer = window.setInterval(pull, 60_000);
+
     return () => {
       sequence++;
       clearTimeout(timer);
       unsubscribers.forEach((unsubscribe) => unsubscribe());
       subscription.unsubscribe();
       window.removeEventListener("online", reconnect);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(pullTimer);
     };
   }, []);
 

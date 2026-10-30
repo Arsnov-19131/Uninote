@@ -1,9 +1,9 @@
-# Handoff: AI Study Toolkit
+# Handoff: Uninote
 
 Written 2026-10-28 for whoever (agent or person) continues. Read `PROJECT_STATUS.md` first, then this file. Rules for how the user wants agents to work are at the end (section 7).
 
 ## 1. What this project is
-A Next.js app (course project, deadline **19 November 2026**) with seven connected features: Planner, Quiz generator, Progress tracker, AI chatbot, Roadmap, Notes vault, Resources. The product spec is `AI Study Toolkit Workflow.docx`; only its Section 2 (product workflow) matters to the current work. The point of the product is that features share data, so a quiz result changes the Tracker, ticking a Roadmap topic changes readiness, and so on.
+A Next.js app (course project, deadline **19 November 2026**) with seven connected features: Planner, Quiz generator, Progress tracker, AI chatbot, Roadmap, Notes vault, Resources. The product spec is `Uninote Workflow.docx`; only its Section 2 (product workflow) matters to the current work. The point of the product is that features share data, so a quiz result changes the Tracker, ticking a Roadmap topic changes readiness, and so on.
 
 ## 2. How the session got here
 1. The user asked for a README so any agent breaks work into small tasks, shows the build order, and after each build asks about GitHub commit / local save and keeps `PROJECT_STATUS.md` current.

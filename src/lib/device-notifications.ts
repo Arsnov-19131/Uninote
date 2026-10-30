@@ -13,6 +13,19 @@ export function getPermission(): PushPermission {
 
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return null;
+  // In development the worker is not used: it could serve stale code while you edit. Remove any
+  // worker and cache left over from earlier runs. Notifications still work without it.
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+      const names = await caches.keys();
+      await Promise.all(names.filter((n) => n.startsWith("ast-runtime-")).map((n) => caches.delete(n)));
+    } catch {
+      // Cleanup is best effort.
+    }
+    return null;
+  }
   try {
     return await navigator.serviceWorker.register("/sw.js");
   } catch {

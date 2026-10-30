@@ -12,6 +12,8 @@ import {
   Select,
 } from "@/components/ui";
 import { formatTime } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { aiExplain } from "@/lib/ai";
 import type { QuizSourceType, ReadingLevel, ChatRole } from "@/types";
 import {
@@ -66,6 +68,8 @@ export default function ChatPage() {
   const [selectedNoteId, setSelectedNoteId] = useState<string>(notes[0]?.id || "");
   const [isThinking, setIsThinking] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  // The question being answered. It is saved to the chat only after the AI replies, so a failed call leaves no orphan message.
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"chat" | "keywords">("chat");
   const [savedNoteToast, setSavedNoteToast] = useState<string | null>(null);
 
@@ -118,7 +122,7 @@ export default function ChatPage() {
     }
 
     const userText = inputPrompt.trim();
-    addMessage(targetSessionId, "user", userText);
+    setPendingQuestion(userText);
     setInputPrompt("");
     setIsThinking(true);
 
@@ -147,13 +151,18 @@ export default function ChatPage() {
     });
 
     if (!result.ok) {
+      // Give the text back so the student can retry without retyping.
       setAiError(result.error);
+      setInputPrompt(userText);
+      setPendingQuestion(null);
       setIsThinking(false);
       return;
     }
 
+    addMessage(sessionId, "user", userText);
     addMessage(sessionId, "assistant", result.data.reply);
     result.data.keywords.forEach((k) => addKeyword(sessionId, k.term, k.definition));
+    setPendingQuestion(null);
     setIsThinking(false);
   };
 
@@ -292,7 +301,7 @@ export default function ChatPage() {
 
           {/* Messages Feed */}
           <div className="flex-1 p-4 overflow-y-auto space-y-4">
-            {currentMessages.length === 0 ? (
+            {currentMessages.length === 0 && !pendingQuestion ? (
               <div className="h-full flex flex-col items-center justify-center text-center text-ink-faint p-6">
                 <Sparkles className="w-10 h-10 text-sky-400 mb-2 opacity-60" />
                 <h3 className="font-heading text-base font-bold text-ink">
@@ -323,9 +332,13 @@ export default function ChatPage() {
                           : "bg-sidebar text-ink rounded-tl-none border border-border"
                       }`}
                     >
-                      <div className="whitespace-pre-wrap font-sans">
-                        {msg.content}
-                      </div>
+                      {isUser ? (
+                        <div className="whitespace-pre-wrap font-sans">{msg.content}</div>
+                      ) : (
+                        <div className="prose font-sans">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                        </div>
+                      )}
 
                       {!isUser && (
                         <div className="mt-2 pt-2 border-t border-border/60 flex items-center justify-between text-[11px] text-ink-faint">
@@ -348,6 +361,14 @@ export default function ChatPage() {
                   </div>
                 );
               })
+            )}
+
+            {pendingQuestion && (
+              <div className="flex gap-3 justify-end">
+                <div className="max-w-[85%] rounded-2xl rounded-tr-none p-3 text-xs sm:text-sm leading-relaxed bg-brand text-white whitespace-pre-wrap font-sans">
+                  {pendingQuestion}
+                </div>
+              </div>
             )}
 
             {isThinking && (

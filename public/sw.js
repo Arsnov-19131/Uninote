@@ -16,7 +16,7 @@
   stale cached AI answer would be worse than a clear "you're offline" error.
 */
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const RUNTIME_CACHE = `ast-runtime-${CACHE_VERSION}`;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [OFFLINE_URL, "/manifest.json", "/icon-192.png", "/icon-512.png"];
@@ -54,30 +54,36 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // leave cross-origin requests alone
   if (url.pathname.startsWith("/api/")) return; // never cache the AI route
+  // Next.js client-side navigation fetches page data (RSC payloads). Always take it from the network.
+  if (req.headers.has("RSC") || url.searchParams.has("_rsc")) return;
 
   if (req.mode === "navigate") {
     // Pages: prefer a fresh copy; fall back to whatever was last cached for
     // that exact page, then to the generic offline notice.
     event.respondWith(
       (async () => {
+        const cache = await caches.open(RUNTIME_CACHE);
         try {
           const fresh = await fetch(req);
-          const cache = await caches.open(RUNTIME_CACHE);
-          cache.put(req, fresh.clone());
+          // Only keep good, non-redirected pages. Never cache an error page.
+          if (fresh.ok && !fresh.redirected) {
+            cache.put(req, fresh.clone()).catch(() => {});
+          }
           return fresh;
         } catch {
-          const cache = await caches.open(RUNTIME_CACHE);
           const cached = await cache.match(req);
-          return cached || (await cache.match(OFFLINE_URL));
+          return cached || (await cache.match(OFFLINE_URL)) || Response.error();
         }
       })(),
     );
     return;
   }
 
-  // Static assets (JS/CSS/fonts/images): Next.js names build files with a
-  // content hash, so a cached copy never goes stale — serve it immediately
-  // when we have it, and cache whatever we fetch for next time.
+  // Only the hashed build files and the app icons are cached. Next.js names files in
+  // /_next/static/ with a content hash, so a cached copy never goes stale.
+  const cacheable = url.pathname.startsWith("/_next/static/") || PRECACHE_URLS.includes(url.pathname);
+  if (!cacheable) return;
+
   event.respondWith(
     (async () => {
       const cache = await caches.open(RUNTIME_CACHE);
@@ -85,7 +91,7 @@ self.addEventListener("fetch", (event) => {
       if (cached) return cached;
       try {
         const fresh = await fetch(req);
-        if (fresh && fresh.ok) cache.put(req, fresh.clone());
+        if (fresh && fresh.ok) cache.put(req, fresh.clone()).catch(() => {});
         return fresh;
       } catch {
         return new Response("", { status: 504, statusText: "Offline" });
