@@ -1,0 +1,23 @@
+{
+  "name": "AI Study Toolkit",
+  "short_name": "StudyKit",
+  "description": "Organise subjects, plan work, learn from AI-explained notes, quiz yourself and track your readiness.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#faf9f6",
+  "theme_color": "#1a2332",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

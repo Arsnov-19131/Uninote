@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>You're offline — AI Study Toolkit</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: #faf9f6;
+    color: #1a2332;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #13141f; color: #e7ecf5; }
+    .card { background: #1b1d2b; border-color: #2e3142; }
+    .retry { background: #3d5a80; }
+  }
+  .card {
+    max-width: 22rem;
+    margin: 1.5rem;
+    padding: 2rem 1.75rem;
+    border-radius: 1rem;
+    border: 1px solid #e0ddd6;
+    background: #ffffff;
+    text-align: center;
+  }
+  h1 { font-size: 1.15rem; margin: 0.75rem 0 0.5rem; }
+  p { font-size: 0.9rem; line-height: 1.5; opacity: 0.8; margin: 0 0 1.25rem; }
+  .retry {
+    display: inline-block;
+    padding: 0.55rem 1.1rem;
+    border-radius: 0.5rem;
+    background: #1a2332;
+    color: #fff;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+  }
+  svg { width: 2.25rem; height: 2.25rem; opacity: 0.6; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M12 18h.01M8.5 15a5 5 0 0 1 7 0M5 11.5a10 10 0 0 1 14 0M2 8a15 15 0 0 1 20 0" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M3 3l18 18" stroke-linecap="round"/>
+    </svg>
+    <h1>You're offline</h1>
+    <p>
+      This page hasn't been opened on this device before, so there's nothing saved to show.
+      Pages and tasks you've already visited are still available — try going back,
+      or reconnect and try again.
+    </p>
+    <button class="retry" onclick="location.reload()">Try again</button>
+  </div>
+</body>
+</html>

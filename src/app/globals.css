@@ -1,0 +1,195 @@
+@import "tailwindcss";
+
+/* ============================================================
+   AI Study Toolkit — Design Tokens & Global Styles
+   "Marked-up graph paper" design direction
+   ============================================================ */
+
+@theme {
+  /* Ink colours */
+  --color-ink: #1a2332;
+  --color-ink-light: #3d4f63;
+  --color-ink-faint: #8899aa;
+  --color-paper: #faf9f6;
+  --color-paper-dark: #1a1a2e;
+  --color-grid: #e0ddd6;
+  --color-grid-dark: #2a2a3e;
+
+  /* Surfaces & borders (cards, inputs, dividers) */
+  --color-surface: #ffffff;
+  --color-surface-soft: #e8e5dd;
+  --color-border: #e0ddd6;
+
+  /* Brand (buttons, selected/active chrome) — same hex as --color-ink in
+     light mode today, but kept as its own token so dark mode can lighten
+     it independently of body text. */
+  --color-brand: #1a2332;
+  --color-brand-hover: #2a3a4f;
+  --color-brand-active: #0f1720;
+
+  /* Focus ring */
+  --color-focus: #bae6fd;
+
+  /* Highlighter palette */
+  --color-hl-yellow: #fef08a;
+  --color-hl-mint: #a7f3d0;
+  --color-hl-pink: #fbcfe8;
+  --color-hl-sky: #bae6fd;
+  --color-hl-violet: #ddd6fe;
+  --color-hl-orange: #fed7aa;
+
+  /* Sidebar */
+  --color-sidebar: #f5f3ee;
+  --color-sidebar-dark: #16162a;
+
+  /* Code blocks (.prose pre) — deliberately always dark in both themes */
+  --color-code-bg: #1a2332;
+
+  /* Font families */
+  --font-sans: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Newsreader", ui-serif, Georgia, serif;
+
+  /* Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+/* ============================================================
+   Dark mode overrides.
+   Tailwind v4 compiles token utilities (text-ink, bg-surface, …) to
+   `color: var(--color-ink)` etc., so re-pointing the custom property
+   here is enough to recolour every class built from it — no per
+   component changes needed. The `.dark` class is set on <html> by
+   the inline theme script in layout.tsx (before paint, to avoid a
+   flash) and by the ThemeToggle component afterwards.
+   ============================================================ */
+.dark {
+  --color-ink: #e7ecf5;
+  --color-ink-light: #b7c3d6;
+  --color-ink-faint: #8a97ad;
+  --color-paper: #13141f;
+  --color-grid: var(--color-grid-dark);
+
+  --color-surface: #1b1d2b;
+  --color-surface-soft: #242638;
+  --color-border: #2e3142;
+
+  --color-brand: #3d5a80;
+  --color-brand-hover: #4d6c96;
+  --color-brand-active: #2c4360;
+
+  --color-focus: #38bdf8;
+
+  --color-sidebar: var(--color-sidebar-dark);
+}
+
+/* ---------- Base ---------- */
+html {
+  scroll-behavior: auto;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background-color: var(--color-paper);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* ---------- Graph-paper background ---------- */
+.graph-paper {
+  background-image:
+    linear-gradient(var(--color-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ---------- Highlighter marks ---------- */
+.highlight-yellow { background-color: var(--color-hl-yellow); }
+.highlight-mint   { background-color: var(--color-hl-mint); }
+.highlight-pink   { background-color: var(--color-hl-pink); }
+.highlight-sky    { background-color: var(--color-hl-sky); }
+.highlight-violet { background-color: var(--color-hl-violet); }
+.highlight-orange { background-color: var(--color-hl-orange); }
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-faint);
+  border-radius: 3px;
+}
+
+/* ---------- Heading font ---------- */
+h1, h2, h3 {
+  font-family: var(--font-heading);
+}
+
+/* ---------- Focus ring ---------- */
+*:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- Animation helpers ---------- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* ---------- Prose / Markdown content ---------- */
+.prose h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+.prose h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.4rem; }
+.prose h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.3rem; }
+.prose p  { margin-bottom: 0.75rem; line-height: 1.7; }
+.prose ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+.prose ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+.prose li { margin-bottom: 0.25rem; }
+.prose code {
+  background: var(--color-grid);
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875em;
+}
+.prose pre {
+  background: var(--color-code-bg);
+  color: #e2e8f0;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  margin-bottom: 0.75rem;
+}
+.prose pre code {
+  background: transparent;
+  padding: 0;
+}
+.prose blockquote {
+  border-left: 3px solid var(--color-hl-sky);
+  padding-left: 1rem;
+  color: var(--color-ink-light);
+  margin-bottom: 0.75rem;
+}
