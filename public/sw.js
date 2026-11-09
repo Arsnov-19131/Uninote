@@ -20,6 +20,24 @@ const CACHE_VERSION = "v2";
 const RUNTIME_CACHE = `ast-runtime-${CACHE_VERSION}`;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [OFFLINE_URL, "/manifest.json", "/icon-192.png", "/icon-512.png"];
+const MAX_STATIC_ENTRIES = 150; // hashed build files pile up across deploys; keep only the newest
+
+/** Keeps the cache from growing forever: deletes the oldest build files beyond the limit. */
+async function trimStatic(cache) {
+  const old = (await cache.keys()).filter((r) => new URL(r.url).pathname.startsWith("/_next/static/"));
+  await Promise.all(old.slice(0, Math.max(0, old.length - MAX_STATIC_ENTRIES)).map((r) => cache.delete(r)));
+}
+
+/** Only same-origin addresses may be opened from a notification. */
+function safeUrl(value) {
+  try {
+    const u = new URL(value, self.location.origin);
+    if (u.origin === self.location.origin) return u.pathname + u.search + u.hash;
+  } catch (e) {
+    // fall through
+  }
+  return "/dashboard/notifications";
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -79,22 +97,25 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Only the hashed build files and the app icons are cached. Next.js names files in
-  // /_next/static/ with a content hash, so a cached copy never goes stale.
-  const cacheable = url.pathname.startsWith("/_next/static/") || PRECACHE_URLS.includes(url.pathname);
-  if (!cacheable) return;
+  // Next.js names files in /_next/static/ with a content hash, so a cached copy never goes stale:
+  // serve it from the cache first. The icons and manifest keep fixed names, so ask the network first
+  // and use the cached copy only when offline.
+  const isStatic = url.pathname.startsWith("/_next/static/");
+  if (!isStatic && !PRECACHE_URLS.includes(url.pathname)) return;
 
   event.respondWith(
     (async () => {
       const cache = await caches.open(RUNTIME_CACHE);
       const cached = await cache.match(req);
-      if (cached) return cached;
+      if (cached && isStatic) return cached;
       try {
         const fresh = await fetch(req);
-        if (fresh && fresh.ok) cache.put(req, fresh.clone()).catch(() => {});
+        if (fresh && fresh.ok) {
+          cache.put(req, fresh.clone()).then(() => isStatic && trimStatic(cache)).catch(() => {});
+        }
         return fresh;
       } catch {
-        return new Response("", { status: 504, statusText: "Offline" });
+        return cached || new Response("", { status: 504, statusText: "Offline" });
       }
     })(),
   );
@@ -114,14 +135,14 @@ self.addEventListener("push", (event) => {
       tag: payload.tag,
       icon: "/icon-192.png",
       badge: "/icon-192.png",
-      data: { url: payload.url || "/dashboard/notifications" },
+      data: { url: safeUrl(payload.url) },
     }),
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/dashboard/notifications";
+  const url = safeUrl(event.notification.data && event.notification.data.url);
 
   event.waitUntil(
     (async () => {

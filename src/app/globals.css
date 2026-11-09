@@ -46,8 +46,8 @@
   --color-code-bg: #1a2332;
 
   /* Font families */
-  --font-sans: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
-  --font-heading: "Newsreader", ui-serif, Georgia, serif;
+  --font-sans: var(--font-bricolage), "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-newsreader), "Newsreader", ui-serif, Georgia, serif;
 
   /* Radius */
   --radius-sm: 0.375rem;

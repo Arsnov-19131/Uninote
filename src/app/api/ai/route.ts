@@ -171,12 +171,13 @@ async function callModel(who: string, system: string, user: string, json: boolea
     if (res.status === 429) {
       throw new AiError(
         "The AI usage limit was reached. Wait a minute and try again, or check your Gemini quota.",
+        429,
       );
     }
     if (res.status === 400 || res.status === 403) {
-      throw new AiError(
-        `Gemini refused the request (${res.status}): ${data?.error?.message ?? "check GEMINI_API_KEY."}`,
-      );
+      // The provider's message can mention the key or project, so it stays in the server log.
+      console.error(`Gemini refused the request (${res.status}):`, data?.error?.message);
+      throw new AiError(`Gemini refused the request (${res.status}). Check GEMINI_API_KEY in the server log.`);
     }
     if (res.status === 404) {
       throw new AiError(
@@ -219,7 +220,12 @@ async function askJson<T>(
       lastProblem = "it was not parseable JSON";
       continue;
     }
-    const valid = validate(parsed);
+    let valid: T | null = null;
+    try {
+      valid = validate(parsed);
+    } catch {
+      // e.g. the model returned null where an object was expected: treat it as a wrong shape.
+    }
     if (valid) return valid;
     lastProblem = "it did not match the requested shape";
   }
@@ -439,7 +445,7 @@ async function gradeJob(who: string, body: Record<string, unknown>): Promise<AiG
     `Question: ${question}`,
     `Model answer: ${modelAnswer || "(none given)"}`,
     `Key points: ${keyPoints.length ? keyPoints.join("; ") : "(none given)"}`,
-    `<student_answer>\n${answer}\n</student_answer>`,
+    `<student_answer>\n${answer.replace(/<\/?\s*student_answer\b/gi, "[student_answer")}\n</student_answer>`,
   ].join("\n");
 
   return askJson<AiGradeResult>(who, system, user, (raw) => {
@@ -504,8 +510,19 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const declared = Number(request.headers.get("content-length") ?? 0);
     if (declared > MAX_BODY_CHARS * 4) return fail("That request is too large.", 413);
-    const raw = await request.text();
-    if (raw.length > MAX_BODY_CHARS) return fail("That request is too large.", 413);
+    // Read the stream with a cap, so a body sent without Content-Length cannot fill memory.
+    const reader = request.body?.getReader();
+    const decoder = new TextDecoder();
+    let raw = "";
+    while (reader) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      raw += decoder.decode(value, { stream: true });
+      if (raw.length > MAX_BODY_CHARS) {
+        await reader.cancel();
+        return fail("That request is too large.", 413);
+      }
+    }
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return fail("The request was not valid JSON.");

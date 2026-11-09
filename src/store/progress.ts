@@ -15,6 +15,7 @@ interface ProgressStore {
   // Suggestions
   addSuggestion: (suggestion: Omit<Suggestion, "id" | "createdAt">) => Suggestion;
   updateSuggestionStatus: (id: string, status: SuggestionStatus) => void;
+  deleteBySubject: (subjectId: string) => void;
   getPendingSuggestions: () => Suggestion[];
   getAllSuggestions: () => Suggestion[];
 }
@@ -45,10 +46,10 @@ export const useProgressStore = create<ProgressStore>()(
       getSnapshots: (subjectId) =>
         get()
           .snapshots.filter((s) => s.subjectId === subjectId)
-          .sort((a, b) => new Date(a.calculatedAt).getTime() - new Date(b.calculatedAt).getTime()),
+          .sort((a, b) => new Date(a.calculatedAt).getTime() - new Date(a.calculatedAt).getTime()),
 
       addSuggestion: (data) => {
-        const sug: Suggestion = { ...data, id: generateId(), createdAt: now() };
+        const sug: Suggestion = { ...data, id: generateId(), createdAt: now(), updatedAt: now() };
         set((s) => ({ suggestions: [...s.suggestions, sug] }));
         return sug;
       },
@@ -56,8 +57,14 @@ export const useProgressStore = create<ProgressStore>()(
       updateSuggestionStatus: (id, status) =>
         set((s) => ({
           suggestions: s.suggestions.map((sug) =>
-            sug.id === id ? { ...sug, status } : sug,
+            sug.id === id ? { ...sug, status, updatedAt: now() } : sug,
           ),
+        })),
+
+      deleteBySubject: (subjectId) =>
+        set((s) => ({
+          snapshots: s.snapshots.filter((snap) => snap.subjectId !== subjectId),
+          suggestions: s.suggestions.filter((sug) => sug.subjectId !== subjectId),
         })),
 
       getPendingSuggestions: () =>

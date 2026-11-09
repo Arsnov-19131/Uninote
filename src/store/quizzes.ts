@@ -5,9 +5,6 @@ import type {
   QuizQuestion,
   QuizAttempt,
   AttemptAnswer,
-  QuizSourceType,
-  QuestionType,
-  QuizDifficulty,
 } from "@/types";
 import { generateId, now } from "@/lib/utils";
 
@@ -21,6 +18,7 @@ interface QuizStore {
   addQuiz: (quiz: Omit<Quiz, "id" | "createdAt">) => Quiz;
   addQuestions: (questions: Omit<QuizQuestion, "id">[]) => QuizQuestion[];
   deleteQuiz: (id: string) => void;
+  deleteBySubject: (subjectId: string) => void;
 
   // Attempt management
   startAttempt: (quizId: string) => QuizAttempt;
@@ -64,6 +62,21 @@ export const useQuizStore = create<QuizStore>()(
           attempts: s.attempts.filter((a) => a.quizId !== id),
         })),
 
+      deleteBySubject: (subjectId) => {
+        const quizIds = new Set(
+          get().quizzes.filter((q) => q.subjectId === subjectId).map((q) => q.id),
+        );
+        const attemptIds = new Set(
+          get().attempts.filter((a) => quizIds.has(a.quizId)).map((a) => a.id),
+        );
+        set((s) => ({
+          quizzes: s.quizzes.filter((q) => q.subjectId !== subjectId),
+          questions: s.questions.filter((q) => !quizIds.has(q.quizId)),
+          attempts: s.attempts.filter((a) => !quizIds.has(a.quizId)),
+          answers: s.answers.filter((ans) => !attemptIds.has(ans.attemptId)),
+        }));
+      },
+
       startAttempt: (quizId) => {
         const attempt: QuizAttempt = {
           id: generateId(),
@@ -85,6 +98,8 @@ export const useQuizStore = create<QuizStore>()(
           score,
           feedback,
           overridden: false,
+          createdAt: now(),
+          updatedAt: now(),
         };
         set((s) => ({ answers: [...s.answers, a] }));
         return a;
@@ -106,7 +121,7 @@ export const useQuizStore = create<QuizStore>()(
       overrideScore: (answerId, newScore) =>
         set((s) => ({
           answers: s.answers.map((a) =>
-            a.id === answerId ? { ...a, score: newScore, overridden: true } : a,
+            a.id === answerId ? { ...a, score: newScore, overridden: true, updatedAt: now() } : a,
           ),
         })),
 
@@ -146,7 +161,6 @@ export const useQuizStore = create<QuizStore>()(
           }
         }
 
-        // Weighted average: recent attempts weighted more
         const result: Record<string, number> = {};
         for (const [topicId, scoreList] of Object.entries(scores)) {
           const recent = scoreList.slice(0, 5);

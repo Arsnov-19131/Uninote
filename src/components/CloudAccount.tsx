@@ -10,8 +10,6 @@ export default function CloudAccount() {
   const client = getSupabaseClient();
   const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -35,33 +33,22 @@ export default function CloudAccount() {
 
   if (!mounted) return <p className="text-sm text-ink-faint">Loading account settings…</p>;
 
-  const act = async (action: "signIn" | "signUp") => {
-    if (!client) return;
-    setBusy(true);
-    setMessage("");
-    try {
-      const result = action === "signIn"
-        ? await client.auth.signInWithPassword({ email: email.trim(), password })
-        : await client.auth.signUp({ email: email.trim(), password });
-      if (result.error) throw result.error;
-      if (action === "signUp" && !result.data.session) {
-        setMessage("Check your email to confirm your account, then sign in here.");
-      } else {
-        setMessage("Signed in. Your local study data is syncing to this account.");
-      }
-      setPassword("");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not sign in. Check your details and try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const signOut = async () => {
+  const signOut = async (clearDevice: boolean) => {
     if (!client) return;
     setBusy(true);
     const { error } = await client.auth.signOut();
-    setMessage(error ? error.message : "Signed out. This device still keeps its local copy.");
+    if (error) {
+      setMessage(error.message);
+      setBusy(false);
+      return;
+    }
+    if (clearDevice) {
+      // For shared computers: the next person must not find this account's data in the browser.
+      Object.keys(localStorage).filter((k) => k.startsWith("ast-")).forEach((k) => localStorage.removeItem(k));
+      window.location.reload();
+      return;
+    }
+    setMessage("Signed out. This device still keeps its local copy.");
     setBusy(false);
   };
 
@@ -72,7 +59,10 @@ export default function CloudAccount() {
       ) : user ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-ink-light">Signed in as <strong className="text-ink">{user.email}</strong>. Changes sync automatically when online.</p>
-          <Button size="sm" variant="secondary" onClick={signOut} disabled={busy}>Sign out</Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => signOut(false)} disabled={busy}>Sign out</Button>
+            <Button size="sm" variant="secondary" onClick={() => signOut(true)} disabled={busy}>Sign out & clear this device</Button>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col gap-3">

@@ -12,13 +12,11 @@ import type { AppNotification, PlannerTask } from "@/types";
 
 const MINUTE = 60_000;
 
+/** Sent reminders older than this are dropped, so the synced data does not grow forever. */
+const HISTORY_KEEP_MS = 30 * 24 * 60 * MINUTE;
+
 /** Device pop-ups are skipped for reminders that are more than this late. They still appear in the app. */
 export const POPUP_MAX_LATE_MS = 6 * 60 * MINUTE;
-
-function makeId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-  return `n-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
 
 function keyOf(taskId: string, offsetMinutes: number, sendMs: number): string {
   return `${taskId}|${offsetMinutes}|${sendMs}`;
@@ -93,7 +91,8 @@ export function runReminderCycle(
   const pendingKeys = new Set<string>();
   for (const n of notifications) {
     if (n.status !== "pending") {
-      kept.push(n);
+      if (nowMs - Date.parse(n.sentAt ?? n.sendAt) > HISTORY_KEEP_MS) changed = true;
+      else kept.push(n);
       continue;
     }
     const key =
@@ -114,7 +113,7 @@ export function runReminderCycle(
     if (pendingKeys.has(key) || history.has(key)) continue;
     if (w.sendMs <= nowMs) continue;
     kept.push({
-      id: makeId(),
+      id: key, // same task + offset + time gives the same id on every device, so synced devices never duplicate it
       taskId: w.task.id,
       message: reminderMessage(w.task.title, w.offset),
       sendAt: new Date(w.sendMs).toISOString(),

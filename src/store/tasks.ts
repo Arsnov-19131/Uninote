@@ -10,6 +10,7 @@ interface TaskStore {
   updateTask: (id: string, updates: Partial<PlannerTask>) => void;
   deleteTask: (id: string) => void;
   deleteBySubject: (subjectId: string) => void;
+  disconnectBySubject: (subjectId: string) => void;
   toggleDone: (id: string) => void;
   moveToDate: (id: string, newDate: string) => void;
   getTasksByDate: (date: string) => PlannerTask[];
@@ -47,6 +48,15 @@ export const useTaskStore = create<TaskStore>()(
 
       deleteBySubject: (subjectId) =>
         set((s) => ({ tasks: s.tasks.filter((t) => t.subjectId !== subjectId) })),
+
+      disconnectBySubject: (subjectId) =>
+        set((s) => ({
+          tasks: s.tasks.map((t) =>
+            t.subjectId === subjectId
+              ? { ...t, subjectId: null, topicId: null, updatedAt: now() }
+              : t,
+          ),
+        })),
 
       toggleDone: (id) =>
         set((s) => ({

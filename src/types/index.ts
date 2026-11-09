@@ -90,6 +90,7 @@ export interface AppNotification {
   offsetMinutes?: number;
   /** The task's due time when this reminder was created. Missing on old entries. */
   dueAt?: string;
+  updatedAt?: string;
 }
 
 // ---------- Notes Vault ----------
@@ -168,6 +169,8 @@ export interface AttemptAnswer {
   score: number; // 0 to 1
   feedback: string;
   overridden: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ---------- Chat ----------
@@ -188,6 +191,7 @@ export interface ChatMessage {
   role: ChatRole;
   content: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Keyword {
@@ -196,6 +200,8 @@ export interface Keyword {
   term: string;
   definition: string;
   savedToGlossary: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ---------- Progress ----------
@@ -220,6 +226,7 @@ export interface Suggestion {
   payload: Record<string, unknown>;
   status: SuggestionStatus;
   createdAt: string;
+  updatedAt?: string;
 }
 
 // ---------- User Profile ----------

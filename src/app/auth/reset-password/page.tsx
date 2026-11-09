@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase";
 import { Button, Input, Card } from "@/components/ui";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,12 @@ export default function ResetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  // The emailed link signs the user in briefly; without that session the update cannot work.
+  const [linkOk, setLinkOk] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    void client?.auth.getSession().then(({ data }) => setLinkOk(Boolean(data.session)));
+  }, [client]);
 
   if (!client) {
     return (
@@ -37,8 +43,10 @@ export default function ResetPasswordPage() {
       });
       if (error) throw error;
       setMessage("Password reset successfully! Redirecting to sign-in...");
-      router.push("/auth/sign-in");
-      router.refresh();
+      setTimeout(() => {
+        router.push("/auth/sign-in");
+        router.refresh();
+      }, 1500);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not reset password. Please try again.");
     } finally {
@@ -54,13 +62,19 @@ export default function ResetPasswordPage() {
           <p className="text-sm text-ink-light mt-2">Please enter your new password to regain access to your account</p>
         </div>
 
+        {linkOk === false && (
+          <p role="alert" className="mb-4 text-sm text-center text-ink-light">
+            This reset link is invalid or has expired. Request a new one from the sign-in page.
+          </p>
+        )}
+
         <form onSubmit={handleResetPassword} className="space-y-4">
           <div className="relative">
             <Input
               label="New Password"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
-              minLength={6}
+              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -74,7 +88,7 @@ export default function ResetPasswordPage() {
             </button>
           </div>
 
-          <Button className="w-full" type="submit" disabled={busy}>
+          <Button className="w-full" type="submit" disabled={busy || linkOk === false}>
             {busy ? "Updating password..." : "Reset Password"}
           </Button>
         </form>

@@ -5,11 +5,11 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
-/** Generate a unique ID (v4 UUID) */
+/** Generate a unique ID (v4 UUID). Ids are the cloud-sync merge key, so they use the secure random source. */
 export function generateId(): string {
-  // Simple UUID v4 without importing uuid to keep client bundles small
+  // getRandomValues (unlike randomUUID) also works on plain-http pages.
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
+    const r = crypto.getRandomValues(new Uint8Array(1))[0] & 15;
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });

@@ -18,6 +18,16 @@ type Slice = Record<string, unknown>;
 export type CloudSnapshot = Record<string, Slice>;
 type IdBaseline = Record<string, Record<string, string[]>>;
 
+export function stableStringify(val: unknown): string {
+  if (val === null || typeof val !== "object") return JSON.stringify(val);
+  if (Array.isArray(val)) return `[${val.map((item) => stableStringify(item ?? null)).join(",")}]`;
+  const entries = Object.keys(val as Record<string, unknown>)
+    .sort()
+    .filter((k) => (val as Record<string, unknown>)[k] !== undefined)
+    .map((k) => `${JSON.stringify(k)}:${stableStringify((val as Record<string, unknown>)[k])}`);
+  return `{${entries.join(",")}}`;
+}
+
 export function readLocalSnapshot(): CloudSnapshot {
   return Object.fromEntries(stores.map((store) => {
     const state = store.getState() as unknown as Slice;
@@ -31,8 +41,19 @@ function mergeList(local: unknown, cloud: unknown) {
   if (!Array.isArray(local)) return Array.isArray(cloud) ? cloud : [];
   if (!Array.isArray(cloud)) return local;
   const rows = new Map<string, Record<string, unknown>>();
+  const unkeyed: unknown[] = [];
+  const seenUnkeyed = new Set<string>();
+
   for (const item of [...cloud, ...local]) {
-    if (!item || typeof item !== "object" || typeof item.id !== "string") continue;
+    if (!item || typeof item !== "object" || typeof (item as { id?: unknown }).id !== "string") {
+      console.warn("[cloud-sync] Row missing string id in mergeList:", item);
+      const key = stableStringify(item);
+      if (!seenUnkeyed.has(key)) {
+        seenUnkeyed.add(key);
+        unkeyed.push(item);
+      }
+      continue;
+    }
     const row = item as Record<string, unknown>;
     const id = row.id as string;
     const previous = rows.get(id);
@@ -40,7 +61,7 @@ function mergeList(local: unknown, cloud: unknown) {
     const previousStamp = String(previous?.updatedAt ?? previous?.createdAt ?? previous?.calculatedAt ?? "");
     if (!previous || stamp >= previousStamp) rows.set(id, row);
   }
-  return [...rows.values()];
+  return [...rows.values(), ...unkeyed];
 }
 
 export function mergeSnapshots(local: CloudSnapshot, cloud: CloudSnapshot): CloudSnapshot {
@@ -164,10 +185,13 @@ async function syncOnce(client: SupabaseClient, user: User): Promise<void> {
     // Steps 2 and 3 run without waiting, so an edit made on this device cannot slip in between.
     const local = readLocalSnapshot();
     const merged = reconcileSnapshots(local, cloud, readBaseline(user.id));
-    if (JSON.stringify(merged) !== JSON.stringify(local)) applySnapshot(merged);
+    if (stableStringify(merged) !== stableStringify(local)) applySnapshot(merged);
     const result = readLocalSnapshot();
 
-    const nothingNew = row && JSON.stringify(result) === JSON.stringify(cloud);
+    const resultStr = stableStringify(result);
+    const cloudStr = stableStringify(cloud);
+
+    const nothingNew = row && resultStr === cloudStr;
     if (!nothingNew) {
       const stamp = new Date().toISOString();
       if (row) {

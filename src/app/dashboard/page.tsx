@@ -104,7 +104,7 @@ export default function DashboardPage() {
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-ink">
-            Ready to study, Arslan?
+            Ready to study ?
           </h1>
           <p className="text-sm text-ink-light mt-0.5">
             You have {tasks.filter((t) => t.status !== "done").length} tasks coming up in the next 7 days.

@@ -75,7 +75,7 @@ export default function SignUpPage() {
               label="Password"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
-              minLength={6}
+              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required

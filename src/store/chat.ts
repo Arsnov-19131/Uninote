@@ -12,6 +12,7 @@ interface ChatStore {
   createSession: (title: string, subjectId?: string | null, sourceSelection?: QuizSourceType | null) => ChatSession;
   updateSession: (id: string, updates: Partial<Pick<ChatSession, "title" | "subjectId" | "sourceSelection">>) => void;
   deleteSession: (id: string) => void;
+  deleteBySubject: (subjectId: string) => void;
 
   // Messages
   addMessage: (sessionId: string, role: ChatRole, content: string) => ChatMessage;
@@ -63,6 +64,17 @@ export const useChatStore = create<ChatStore>()(
           keywords: s.keywords.filter((k) => k.sessionId !== id),
         })),
 
+      deleteBySubject: (subjectId) => {
+        const sessionIds = new Set(
+          get().sessions.filter((s) => s.subjectId === subjectId).map((s) => s.id),
+        );
+        set((s) => ({
+          sessions: s.sessions.filter((sess) => sess.subjectId !== subjectId),
+          messages: s.messages.filter((m) => !sessionIds.has(m.sessionId)),
+          keywords: s.keywords.filter((k) => !sessionIds.has(k.sessionId)),
+        }));
+      },
+
       addMessage: (sessionId, role, content) => {
         const msg: ChatMessage = {
           id: generateId(),
@@ -70,6 +82,7 @@ export const useChatStore = create<ChatStore>()(
           role,
           content,
           createdAt: now(),
+          updatedAt: now(),
         };
         set((s) => ({
           messages: [...s.messages, msg],
@@ -92,6 +105,8 @@ export const useChatStore = create<ChatStore>()(
           term,
           definition,
           savedToGlossary: false,
+          createdAt: now(),
+          updatedAt: now(),
         };
         set((s) => ({ keywords: [...s.keywords, kw] }));
         return kw;
@@ -100,7 +115,7 @@ export const useChatStore = create<ChatStore>()(
       toggleGlossary: (id) =>
         set((s) => ({
           keywords: s.keywords.map((k) =>
-            k.id === id ? { ...k, savedToGlossary: !k.savedToGlossary } : k,
+            k.id === id ? { ...k, savedToGlossary: !k.savedToGlossary, updatedAt: now() } : k,
           ),
         })),
 

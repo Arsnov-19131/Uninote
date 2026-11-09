@@ -47,7 +47,6 @@ export const useTopicStore = create<TopicStore>()(
         })),
 
       deleteTopic: (id) => {
-        // Also delete children
         const children = get().getChildTopics(id);
         const childIds = children.map((c) => c.id);
         set((s) => ({
@@ -71,7 +70,7 @@ export const useTopicStore = create<TopicStore>()(
         set((s) => ({
           topics: s.topics.map((t) => {
             const idx = ids.indexOf(t.id);
-            return idx >= 0 ? { ...t, sortOrder: idx } : t;
+            return idx >= 0 ? { ...t, sortOrder: idx, updatedAt: now() } : t;
           }),
         })),
 

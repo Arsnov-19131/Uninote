@@ -33,6 +33,7 @@ export const useNotificationStore = create<NotificationStore>()(
           status: "pending",
           read: false,
           createdAt: now(),
+          updatedAt: now(),
         };
         set((s) => ({ notifications: [...s.notifications, notif] }));
         return notif;
@@ -47,7 +48,7 @@ export const useNotificationStore = create<NotificationStore>()(
       markRead: (id) =>
         set((s) => ({
           notifications: s.notifications.map((n) =>
-            n.id === id ? { ...n, read: true } : n,
+            n.id === id ? { ...n, read: true, updatedAt: now() } : n,
           ),
         })),
 
@@ -55,7 +56,7 @@ export const useNotificationStore = create<NotificationStore>()(
         set((s) => ({
           // Only reminders that have fired. A still-pending one must stay unread so it shows a badge when it goes off.
           notifications: s.notifications.map((n) =>
-            n.status === "sent" ? { ...n, read: true } : n,
+            n.status === "sent" ? { ...n, read: true, updatedAt: now() } : n,
           ),
         })),
 

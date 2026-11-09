@@ -50,14 +50,14 @@ export const useNoteStore = create<NoteStore>()(
       softDelete: (id) =>
         set((s) => ({
           notes: s.notes.map((n) =>
-            n.id === id ? { ...n, deletedAt: now() } : n,
+            n.id === id ? { ...n, deletedAt: now(), updatedAt: now() } : n,
           ),
         })),
 
       restore: (id) =>
         set((s) => ({
           notes: s.notes.map((n) =>
-            n.id === id ? { ...n, deletedAt: null } : n,
+            n.id === id ? { ...n, deletedAt: null, updatedAt: now() } : n,
           ),
         })),
 
@@ -70,7 +70,7 @@ export const useNoteStore = create<NoteStore>()(
       deleteBySubject: (subjectId) =>
         set((s) => ({
           notes: s.notes.map((n) =>
-            n.subjectId === subjectId ? { ...n, deletedAt: now() } : n,
+            n.subjectId === subjectId ? { ...n, deletedAt: now(), updatedAt: now() } : n,
           ),
         })),
 

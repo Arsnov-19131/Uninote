@@ -1,177 +1,15 @@
-// Task E4 — edge-case tests for the pure date/reminder logic.
-// Plain JS re-implementation of src/lib/calendar.ts and src/lib/reminders.ts
-// (kept behaviourally identical, types stripped) so it can run with plain
-// node, no build step or npm install needed.
+// Edge-case tests for the pure date/reminder logic. They import the REAL source files
+// (Node strips the TypeScript types), so there is no second copy to keep in sync.
 //
-// Run it:
-//   node scripts/edge-case-tests.mjs
-// Run it in a specific time zone (the thing actually worth checking —
-// these functions read the machine's local clock):
-//   TZ="America/New_York" node scripts/edge-case-tests.mjs
-//   TZ="Pacific/Chatham" node scripts/edge-case-tests.mjs   (an unusual +12:45/+13:45 DST zone)
-//
-// IMPORTANT: if you change src/lib/calendar.ts or src/lib/reminders.ts,
-// copy the changed functions into this file too — it does not import the
-// real ones (this sandbox has no TypeScript loader for plain node).
+// Run it:   npm test
+// Run it in a specific time zone (these functions read the machine's local clock):
+//   TZ="America/New_York" npm test
+//   TZ="Pacific/Chatham" npm test   (an unusual +12:45/+13:45 DST zone)
 
-const pad2 = (n) => String(n).padStart(2, "0");
+import { dayKey, parseDayKey, addDays, moveToDay, groupTasksByDay, weekDays } from "../src/lib/calendar.ts";
+import { runReminderCycle, durationPhrase } from "../src/lib/reminders.ts";
 
-function dayKey(d) {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-function dayKeyOf(iso) {
-  return dayKey(new Date(iso));
-}
-function parseDayKey(key) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
-  if (!m) return null;
-  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const date = new Date(y, mo - 1, d);
-  return date.getFullYear() === y && date.getMonth() === mo - 1 && date.getDate() === d
-    ? date
-    : null;
-}
-function startOfDay(d) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
-function addDays(d, n) {
-  const copy = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  copy.setDate(copy.getDate() + n);
-  return copy;
-}
-function startOfWeek(d) {
-  return addDays(startOfDay(d), -startOfDay(d).getDay());
-}
-function weekDays(d) {
-  const start = startOfWeek(d);
-  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
-}
-function moveToDay(dueAtIso, targetKey) {
-  const target = parseDayKey(targetKey);
-  const old = new Date(dueAtIso);
-  if (!target || Number.isNaN(old.getTime())) return null;
-  return new Date(
-    target.getFullYear(),
-    target.getMonth(),
-    target.getDate(),
-    old.getHours(),
-    old.getMinutes(),
-    0,
-    0,
-  ).toISOString();
-}
-function groupTasksByDay(items) {
-  const map = new Map();
-  const sorted = [...items].sort((a, b) => Date.parse(a.dueAt) - Date.parse(b.dueAt));
-  for (const item of sorted) {
-    const key = dayKeyOf(item.dueAt);
-    const list = map.get(key);
-    if (list) list.push(item);
-    else map.set(key, [item]);
-  }
-  return map;
-}
-
-// ---- reminders.ts (unchanged logic, types stripped) ----
 const MINUTE = 60_000;
-const POPUP_MAX_LATE_MS = 6 * 60 * MINUTE;
-let idCounter = 0;
-function makeId() {
-  return `n-${++idCounter}`;
-}
-function keyOf(taskId, offsetMinutes, sendMs) {
-  return `${taskId}|${offsetMinutes}|${sendMs}`;
-}
-function durationPhrase(minutes) {
-  if (minutes % 1440 === 0) {
-    const days = minutes / 1440;
-    return `${days} ${days === 1 ? "day" : "days"}`;
-  }
-  if (minutes % 60 === 0) {
-    const hours = minutes / 60;
-    return `${hours} ${hours === 1 ? "hour" : "hours"}`;
-  }
-  return `${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
-}
-function reminderMessage(title, offsetMinutes) {
-  return `Reminder: "${title}" is due in ${durationPhrase(offsetMinutes)}.`;
-}
-function lateMessage(title, dueMs, nowMs) {
-  if (nowMs - dueMs < MINUTE) return `Reminder: "${title}" is due now.`;
-  return `Reminder: "${title}" was due ${new Date(dueMs).toLocaleString()}.`;
-}
-function runReminderCycle(tasks, notifications, nowMs) {
-  const taskById = new Map(tasks.map((t) => [t.id, t]));
-  const wanted = new Map();
-  for (const task of tasks) {
-    if (task.status === "done") continue;
-    const dueMs = Date.parse(task.dueAt);
-    if (Number.isNaN(dueMs)) continue;
-    for (const offset of new Set(task.reminderOffsets ?? [])) {
-      if (!Number.isFinite(offset) || offset <= 0) continue;
-      const sendMs = dueMs - offset * MINUTE;
-      wanted.set(keyOf(task.id, offset, sendMs), { task, offset, sendMs, dueMs });
-    }
-  }
-  const history = new Set();
-  for (const n of notifications) {
-    if (n.status !== "pending" && n.offsetMinutes !== undefined) {
-      history.add(keyOf(n.taskId, n.offsetMinutes, Date.parse(n.sendAt)));
-    }
-  }
-  let changed = false;
-  const kept = [];
-  const pendingKeys = new Set();
-  for (const n of notifications) {
-    if (n.status !== "pending") {
-      kept.push(n);
-      continue;
-    }
-    const key = n.offsetMinutes === undefined ? null : keyOf(n.taskId, n.offsetMinutes, Date.parse(n.sendAt));
-    if (key && wanted.has(key) && !history.has(key) && !pendingKeys.has(key)) {
-      pendingKeys.add(key);
-      kept.push(n);
-    } else {
-      changed = true;
-    }
-  }
-  const createdAt = new Date(nowMs).toISOString();
-  for (const [key, w] of wanted) {
-    if (pendingKeys.has(key) || history.has(key)) continue;
-    if (w.sendMs <= nowMs) continue;
-    kept.push({
-      id: makeId(),
-      taskId: w.task.id,
-      message: reminderMessage(w.task.title, w.offset),
-      sendAt: new Date(w.sendMs).toISOString(),
-      channel: "in_app",
-      sentAt: null,
-      status: "pending",
-      read: false,
-      createdAt,
-      offsetMinutes: w.offset,
-      dueAt: w.task.dueAt,
-    });
-    changed = true;
-  }
-  const fired = [];
-  const next = kept.map((n) => {
-    if (n.status !== "pending" || Date.parse(n.sendAt) > nowMs) return n;
-    const task = taskById.get(n.taskId);
-    const dueMs = n.dueAt ? Date.parse(n.dueAt) : task ? Date.parse(task.dueAt) : NaN;
-    const title = task?.title ?? "A task";
-    const sent = {
-      ...n,
-      status: "sent",
-      sentAt: new Date(nowMs).toISOString(),
-      message: !Number.isNaN(dueMs) && nowMs >= dueMs ? lateMessage(title, dueMs, nowMs) : n.message,
-    };
-    fired.push(sent);
-    changed = true;
-    return sent;
-  });
-  return { next: changed ? next : notifications, fired, changed };
-}
 
 // ---------------- Test runner ----------------
 let pass = 0;
@@ -325,6 +163,31 @@ const TZ = process.env.TZ || "(unset)";
   check("durationPhrase 7 days", durationPhrase(10080) === "7 days");
   check("durationPhrase 1 hour", durationPhrase(60) === "1 hour");
   check("durationPhrase 1 minute", durationPhrase(1) === "1 minute");
+}
+
+
+// 12. Two devices that each create the reminder get the SAME id, so sync merges them into one.
+{
+  const dueMs = Date.now() + 2 * 60 * MINUTE;
+  const task = { id: "t6", title: "Two devices", dueAt: new Date(dueMs).toISOString(), status: "todo", reminderOffsets: [60] };
+  const a = runReminderCycle([task], [], Date.now()).next[0];
+  const b = runReminderCycle([task], [], Date.now() + 5000).next[0];
+  check("same reminder has the same id on every device", a && b && a.id === b.id, `${a?.id} vs ${b?.id}`);
+}
+
+// 13. Sent reminders older than 30 days are dropped; recent ones are kept.
+{
+  const nowMs = Date.now();
+  const mk = (id, daysAgo) => ({
+    id, taskId: "gone", message: "m", channel: "in_app", status: "sent", read: true, createdAt: "x",
+    sendAt: new Date(nowMs - daysAgo * 1440 * MINUTE).toISOString(),
+    sentAt: new Date(nowMs - daysAgo * 1440 * MINUTE).toISOString(),
+    offsetMinutes: 60,
+  });
+  const { next, changed } = runReminderCycle([], [mk("old", 40), mk("recent", 2)], nowMs);
+  check("old sent reminder pruned", !next.some((n) => n.id === "old"));
+  check("recent sent reminder kept", next.some((n) => n.id === "recent"));
+  check("pruning reports a change", changed);
 }
 
 console.log(`[${TZ}] ${pass} passed, ${fail} failed`);

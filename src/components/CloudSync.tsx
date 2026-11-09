@@ -50,6 +50,11 @@ export default function CloudSync() {
         if (previousUserId && previousUserId !== user.id) {
           // Keep an exportable local snapshot for the previous account, and
           // never merge one person's browser data into another person's row.
+          // Keep only the newest backup per account so localStorage does not fill up.
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const k = localStorage.key(i);
+            if (k?.startsWith(`ast-cloud-backup-${previousUserId}-`)) localStorage.removeItem(k);
+          }
           localStorage.setItem(`ast-cloud-backup-${previousUserId}-${Date.now()}`, JSON.stringify(readLocalSnapshot()));
           snapshot = { ...emptySnapshot(), ...(cloud ?? {}) };
         } else {
